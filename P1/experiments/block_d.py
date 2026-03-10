@@ -27,8 +27,8 @@ from P1.algorithms.aco import ACOOptimizer
 from P1.algorithms.ga import GAOptimizer
 
 ETA_N_VALUES = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
-N_SEEDS = 10
-N_TRAIN_EPISODES = 50
+N_SEEDS = 1
+N_TRAIN_EPISODES = 40
 N_EVAL_WINDOWS = 10
 
 ALGO_NAMES = ["Improved_IPPO", "IPPO", "Greedy", "ACO", "GA"]
@@ -58,7 +58,7 @@ def _train_and_eval_rl(agent, env, protocol, cfg, rng, n_train, n_eval):
 
 def _run_single_config_d(args):
     eta_n, seed, algo_name, n_train, n_eval = args
-    cfg = EnvConfig(N_total=120, eta_N=eta_n, print_diagnostics=False)
+    cfg = EnvConfig(N_total=50, eta_N=eta_n, print_diagnostics=False)
     rng = np.random.default_rng(seed)
     n = cfg.N_total
 
@@ -96,7 +96,7 @@ def run_block_d(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
                 n_workers: int = None) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     args_list = [(eta_n, seed, algo_name, n_train, n_eval)
                  for eta_n in ETA_N_VALUES

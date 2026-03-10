@@ -1,7 +1,7 @@
 """
 Experiment Block A — GMAPPO learning-rate sweep  (parallelised).
 
-Fix N_total = 120, eta_ch = 1.0.
+Fix N_total = 20, eta_ch = 1.0.
 Train GMAPPO at lr in {1e-4, 3e-4, 1e-3}.
 Log per-episode mean reward and mean LA_pi.
 
@@ -29,7 +29,7 @@ from P2.link_quality.rf_estimator import LinkQualityEstimator
 from P2.algorithms.gmappo import GMAPPO
 
 LR_VALUES = [1e-4, 3e-4, 1e-3]
-N_SEEDS = 5
+N_SEEDS = 1
 N_EPISODES = 80
 N_WINDOWS_PER_EP = 5
 
@@ -42,7 +42,7 @@ def _worker_block_a(
     """Train one (lr, seed) configuration and return per-episode records."""
     lr, seed, estimator_path, n_episodes, n_windows = args
 
-    cfg = EnvConfig(N_total=30, eta_ch=1.0, print_diagnostics=False)
+    cfg = EnvConfig(N_total=20, eta_ch=1.0, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="link_selection",
                        max_steps=n_windows * 20 + 50)
     rng = np.random.default_rng(seed)
@@ -85,7 +85,7 @@ def run_block_a(
     os.makedirs(log_dir, exist_ok=True)
 
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     # Resolve estimator path so every worker can load independently
     if estimator_path is None:

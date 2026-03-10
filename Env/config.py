@@ -172,8 +172,8 @@ class EnvConfig:
     print_diagnostics: bool = True
 
     # ── Simulation area ──────────────────────────────────────────────────
-    area_width: float = 100_000.0    # m — 100 km
-    area_height: float = 100_000.0   # m — 100 km
+    area_width: float = 1_000.0    # m — 1 km
+    area_height: float = 1_000.0   # m — 1 km
     sat_altitude: float = 550_000.0  # m — LEO altitude
 
     # ==================================================================
@@ -207,7 +207,7 @@ class EnvConfig:
 
     @property
     def M_b(self) -> float:
-        return self.M_tot / max(1, self.active_source_count())
+        return self.M_tot / max(1, self.active_source_count)
 
     @property
     def gamma_link_linear(self) -> float:

@@ -1,12 +1,13 @@
 """
 Plot generation for Research Content 1 experiments.
 
-Produces 5 figures as specified in Experiment Manual I:
+Produces 6 figures as specified in Experiment Manual I:
   Fig1 — F1_topo vs eta_N (mechanism comparison)
   Fig2 — F1_topo vs N_total (mechanism comparison)
   Fig3 — Reward curve vs training episode (Improved IPPO lr sweep)
   Fig4 — E_ND vs eta_N (algorithm comparison)
   Fig5 — E_ND vs N_total (algorithm comparison)
+  Fig6 — Convergence comparison across algorithms
 """
 
 from __future__ import annotations
@@ -189,6 +190,40 @@ def plot_fig5(log_dir: str, fig_dir: str):
     print("  [Fig5] saved.")
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Figure 6 — convergence comparison (algorithm)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def plot_fig6(log_dir: str, fig_dir: str):
+    df = _safe_load(os.path.join(log_dir, "block_f_summary.csv"))
+    if df is None:
+        print("  [Fig6] block_f_summary.csv not found, skipping.")
+        return
+
+    fig, ax = plt.subplots()
+    for algo in ["Improved_IPPO", "IPPO"]:
+        sub = df[df["algorithm"] == algo].sort_values("episode")
+        if sub.empty:
+            continue
+        ax.plot(sub["episode"], sub["mean"],
+                marker=ALGO_MARKERS.get(algo, "o"),
+                color=ALGO_COLORS.get(algo, "gray"),
+                label=algo.replace("_", " "), linewidth=1.5)
+        ax.fill_between(sub["episode"],
+                        sub["mean"] - sub["std"],
+                        sub["mean"] + sub["std"],
+                        alpha=0.15, color=ALGO_COLORS.get(algo, "gray"))
+    ax.set_xlabel("Training episode")
+    ax.set_ylabel("Mean episodic reward")
+    ax.set_title("Convergence Comparison — RC1 Algorithms")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.savefig(os.path.join(fig_dir, "Fig6_RC1_convergence_algorithms.png"))
+    plt.close(fig)
+    print("  [Fig6] saved.")
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Main entry
 # ═══════════════════════════════════════════════════════════════════════════
@@ -202,6 +237,7 @@ def generate_all_figures(log_dir: str = "P1/logs",
     plot_fig3(log_dir, fig_dir)
     plot_fig4(log_dir, fig_dir)
     plot_fig5(log_dir, fig_dir)
+    plot_fig6(log_dir, fig_dir)
     print("Done.\n")
 
 

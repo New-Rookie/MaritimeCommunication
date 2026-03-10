@@ -36,7 +36,7 @@ def run_block_p(log_dir: str = "P2/logs",
     os.makedirs(log_dir, exist_ok=True)
 
     print("  [Block P] Collecting probe samples ...")
-    cfg = EnvConfig(N_total=120, eta_ch=1.0, print_diagnostics=False)
+    cfg = EnvConfig(N_total=20, eta_ch=1.0, print_diagnostics=False)
     df_probes = collect_probes(cfg, n_steps=n_steps,
                                n_probe_per_class=n_probe, seed=seed)
 

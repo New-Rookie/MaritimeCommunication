@@ -1,7 +1,7 @@
 """
 Experiment Block A — Improved MATD3 learning-rate sweep (parallelised).
 
-Fix N_total=120, M_tot=60 Mbit, eta_B=eta_F=eta_S=1.0.
+Fix N_total=15, M_tot=60 Mbit, eta_B=eta_F=eta_S=1.0.
 Train Improved MATD3 at lr in {1e-4, 3e-4, 1e-3}.
 Log per-episode mean reward, mean T_total, mean E_total, mean Gamma.
 
@@ -24,7 +24,7 @@ from Env.core_env import MarineIoTEnv
 from P3.algorithms.improved_matd3 import ImprovedMATD3
 
 LR_VALUES = [1e-4, 3e-4, 1e-3]
-N_SEEDS = 5
+N_SEEDS = 1
 N_EPISODES = 80
 N_WINDOWS = 5
 
@@ -33,12 +33,12 @@ def _worker_block_a(
     args: Tuple[float, int, int, int],
 ) -> List[Dict[str, Any]]:
     lr, seed, n_episodes, n_windows = args
-    cfg = EnvConfig(N_total=20, print_diagnostics=False)
+    cfg = EnvConfig(N_total=15, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="resource_mgmt",
                        max_steps=n_windows * 20 + 50)
     rng = np.random.default_rng(seed)
 
-    agent = ImprovedMATD3(cfg.N_src, cfg, lr=lr)
+    agent = ImprovedMATD3(min(cfg.N_src, cfg.node_counts["buoy"]), cfg, lr=lr)
     records: List[Dict[str, Any]] = []
     for ep in range(n_episodes):
         info = agent.train_episode(env, n_windows=n_windows, rng=rng)
@@ -67,7 +67,7 @@ def run_block_a(
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
         (lr, seed, n_episodes, n_windows)

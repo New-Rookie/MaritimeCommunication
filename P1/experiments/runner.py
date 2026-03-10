@@ -54,14 +54,18 @@ def main():
     parser.add_argument("--quick", action="store_true",
                         help="Reduce seeds/episodes for a fast smoke test")
     parser.add_argument("--workers", type=int, default=None,
-                        help="Max parallel workers (default: cpu_count)")
+                        help="Max parallel workers (default: auto-share CPU across P1/P2/P3 concurrent runs)")
     args = parser.parse_args()
+
+    cpu_total = os.cpu_count() or 1
+    auto_workers = max(1, cpu_total // 3)
+    resolved_workers = args.workers if args.workers is not None else auto_workers
 
     quick_kw = {}
     if args.quick:
         quick_kw = {"n_seeds": 2}
 
-    worker_kw = {"n_workers": args.workers}
+    worker_kw = {"n_workers": resolved_workers}
 
     os.makedirs(args.log_dir, exist_ok=True)
     os.makedirs("P1/figures", exist_ok=True)
@@ -79,7 +83,7 @@ def main():
         print("  MODE: --quick (reduced seeds/episodes for smoke test)")
     print(f"  Blocks: {', '.join(blocks_to_run)}")
     print(f"  Log dir: {args.log_dir}/")
-    print(f"  Workers: {args.workers or 'auto (cpu_count)'}")
+    print(f"  Workers: {resolved_workers} ({'manual' if args.workers is not None else 'auto-shared: cpu_count//3'})")
     print("=" * 64)
     print()
 

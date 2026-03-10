@@ -23,14 +23,14 @@ from P1.protocols.indp import INDPProtocol
 from P1.algorithms.improved_ippo import ImprovedIPPO
 
 LR_VALUES = [1e-4, 3e-4, 1e-3]
-N_SEEDS = 5
+N_SEEDS = 1
 N_EPISODES = 100
 N_WINDOWS_PER_EP = 5
 
 
 def _run_single_config_c(args):
     lr, seed, n_episodes, n_windows = args
-    cfg = EnvConfig(N_total=120, eta_N=1.0, print_diagnostics=False)
+    cfg = EnvConfig(N_total=50, eta_N=1.0, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="discovery", max_steps=n_windows * cfg.N_slot)
     rng = np.random.default_rng(seed)
     protocol = INDPProtocol(cfg)
@@ -64,7 +64,7 @@ def run_block_c(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
                 n_workers: int = None) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     args_list = [(lr, seed, n_episodes, n_windows)
                  for lr in LR_VALUES
