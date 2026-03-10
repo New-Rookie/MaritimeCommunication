@@ -34,9 +34,9 @@ from P3.algorithms.ga import GAAllocator
 
 ETA_VALUES = [0.5, 0.75, 1.0, 1.25, 1.5]
 ETA_TYPES = ["eta_B", "eta_F", "eta_S"]
-N_SEEDS = 10
-N_TRAIN = 120
-N_EVAL = 40
+N_SEEDS = 8
+N_TRAIN = 70
+N_EVAL = 20
 ALGO_NAMES = ["Improved_MATD3", "MATD3", "Greedy", "ACO", "GA"]
 
 
@@ -72,7 +72,7 @@ def _worker_block_bc(
     env = MarineIoTEnv(cfg, mode="resource_mgmt",
                        max_steps=n_eval * 20 + 100)
     rng = np.random.default_rng(seed)
-    n = cfg.N_src
+    n = min(cfg.N_src, cfg.node_counts["buoy"])
 
     if algo_name == "Improved_MATD3":
         agent = ImprovedMATD3(n, cfg, lr=3e-4)
@@ -115,7 +115,7 @@ def run_block_bc(
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
         (eta_type, eta_val, seed, algo, n_train, n_eval)

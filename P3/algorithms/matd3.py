@@ -115,6 +115,7 @@ class MATD3:
         self._update_count = 0
 
         enc_dim = 64
+        self.enc_dim = enc_dim
         self.encoder = MLPEncoder(OBS_DIM, enc_dim).to(self.device)
         self.actor = Actor(enc_dim, ACT_DIM).to(self.device)
 
@@ -185,9 +186,11 @@ class MATD3:
     def select_actions(self, env, source_ids, local_map, edge_map, explore=True):
         obs_dict = self.build_observations(env, source_ids, local_map, edge_map)
         actions_out = {}
+        encoded_list = []
         for bid in source_ids:
             o_t = torch.FloatTensor(obs_dict[bid]).unsqueeze(0).to(self.device)
             enc = self.encoder(o_t).squeeze(0)
+            encoded_list.append(enc.cpu().numpy())
             a_t = self.actor(enc.unsqueeze(0)).squeeze(0).cpu().numpy()
             if explore:
                 noise = np.random.randn(ACT_DIM).astype(np.float32) * self.noise_std
@@ -202,7 +205,37 @@ class MATD3:
                 "omega_comp": float(a_t[4]),
                 "omega_rem": float(a_t[5]),
             }
-        return actions_out
+        enc_arr = np.stack(encoded_list) if encoded_list else np.zeros((0, self.enc_dim), dtype=np.float32)
+        return actions_out, enc_arr
+
+    def _pack_encoded_state(self, encoded: np.ndarray) -> np.ndarray:
+        packed = np.zeros((self.n_agents, self.enc_dim), dtype=np.float32)
+        if encoded.size > 0:
+            k = min(self.n_agents, encoded.shape[0])
+            packed[:k] = encoded[:k]
+        return packed.reshape(-1)
+
+    def _pack_actions(self, actions: Dict[int, Dict[str, float]], source_ids: List[int]) -> np.ndarray:
+        packed = np.zeros((self.n_agents, ACT_DIM), dtype=np.float32)
+        k = min(self.n_agents, len(source_ids))
+        for i, bid in enumerate(source_ids[:k]):
+            a = actions.get(bid, {})
+            packed[i, 0] = float(a.get("alpha_off", 0.0))
+            packed[i, 1] = float(a.get("bw_frac", 0.0))
+            packed[i, 2] = float(a.get("f_frac", 0.0))
+            packed[i, 3] = float(a.get("omega_comm", 0.5))
+            packed[i, 4] = float(a.get("omega_comp", 0.3))
+            packed[i, 5] = float(a.get("omega_rem", 0.2))
+        return packed.reshape(-1)
+
+    @torch.no_grad()
+    def _encode_obs_dict(self, source_ids: List[int], obs_dict: Dict[int, np.ndarray]) -> np.ndarray:
+        encoded_list = []
+        for bid in source_ids:
+            o_t = torch.FloatTensor(obs_dict[bid]).unsqueeze(0).to(self.device)
+            enc = self.encoder(o_t).squeeze(0)
+            encoded_list.append(enc.cpu().numpy())
+        return np.stack(encoded_list) if encoded_list else np.zeros((0, self.enc_dim), dtype=np.float32)
 
     def train_episode(self, env, n_windows=5, rng=None):
         if rng is None:
@@ -217,7 +250,7 @@ class MATD3:
             env.recompute_ground_truth()
             local_map, edge_map = self.build_assignments(env, source_ids)
             obs_pre = self.build_observations(env, source_ids, local_map, edge_map)
-            actions = self.select_actions(env, source_ids, local_map, edge_map, explore=True)
+            actions, enc_pre = self.select_actions(env, source_ids, local_map, edge_map, explore=True)
             results = simulate_offloading(env, cfg, source_ids, actions, queue)
             metrics = aggregate_results(results, cfg.Gamma_max)
             reward = compute_reward(metrics, cfg.T_max, cfg.E_max, cfg.Gamma_max)
@@ -229,16 +262,11 @@ class MATD3:
             actions_env = np.ones((len(env.nodes), 2), dtype=np.float32)
             env.step(actions_env)
             obs_post = self.build_observations(env, source_ids, local_map, edge_map)
+            enc_post = self._encode_obs_dict(source_ids, obs_post)
 
-            global_s = np.concatenate([obs_pre[b] for b in source_ids])
-            global_s_next = np.concatenate([obs_post[b] for b in source_ids])
-            flat_a = np.concatenate([
-                np.array([actions[b]["alpha_off"], actions[b]["bw_frac"],
-                          actions[b]["f_frac"], actions[b].get("omega_comm", 0.5),
-                          actions[b].get("omega_comp", 0.3),
-                          actions[b].get("omega_rem", 0.2)])
-                for b in source_ids
-            ])
+            global_s = self._pack_encoded_state(enc_pre)
+            global_s_next = self._pack_encoded_state(enc_post)
+            flat_a = self._pack_actions(actions, source_ids)
             done = 0.0
             self.replay.push((global_s, flat_a, reward, global_s_next, done))
             if len(self.replay) >= self.batch_size:
@@ -260,7 +288,7 @@ class MATD3:
         source_ids = select_source_buoys(env.nodes, cfg.N_src, rng, cfg.source_activation_ratio)
         env.recompute_ground_truth()
         local_map, edge_map = self.build_assignments(env, source_ids)
-        actions = self.select_actions(env, source_ids, local_map, edge_map, explore=False)
+        actions, _ = self.select_actions(env, source_ids, local_map, edge_map, explore=False)
         queue = QueueState()
         results = simulate_offloading(env, cfg, source_ids, actions, queue)
         metrics = aggregate_results(results, cfg.Gamma_max)
@@ -282,7 +310,9 @@ class MATD3:
         with torch.no_grad():
             noise = (torch.randn_like(a) * self.noise_std).clamp(
                 -self.noise_clip, self.noise_clip)
-            a2 = (self.actor_target(s2) + noise).clamp(0.0, 1.0)
+            s2_agents = s2.view(-1, self.n_agents, self.enc_dim)
+            a2_agents = self.actor_target(s2_agents.reshape(-1, self.enc_dim)).view(-1, self.n_agents, ACT_DIM)
+            a2 = (a2_agents.reshape(-1, self.n_agents * ACT_DIM) + noise).clamp(0.0, 1.0)
             q1t, q2t = self.critic_target(s2, a2)
             q_target = r + self.gamma * (1 - d) * torch.min(q1t, q2t)
 
@@ -296,7 +326,8 @@ class MATD3:
 
         self._update_count += 1
         if self._update_count % self.policy_delay == 0:
-            aa = self.actor(s)
+            s_agents = s.view(-1, self.n_agents, self.enc_dim)
+            aa = self.actor(s_agents.reshape(-1, self.enc_dim)).view(-1, self.n_agents * ACT_DIM)
             q1v, _ = self.critic(s, aa)
             actor_loss = -q1v.mean()
             self.actor_optim.zero_grad()

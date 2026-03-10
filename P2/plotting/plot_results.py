@@ -1,11 +1,12 @@
 """
 Plot generation for Research Content 2 experiments.
 
-Produces 4 figures as specified in Experiment Manual II:
+Produces 5 figures as specified in Experiment Manual II:
   Fig1 — RF estimator effectiveness (predicted vs measured PRR)
   Fig2 — GMAPPO reward curve under learning-rate sweep
   Fig3 — LA_pi vs N_total (algorithm comparison)
   Fig4 — LA_pi vs eta_ch (algorithm comparison)
+  Fig5 — Convergence comparison across algorithms
 """
 
 from __future__ import annotations
@@ -190,6 +191,41 @@ def plot_fig4(log_dir: str, fig_dir: str):
     print("  [Fig4] saved.")
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Figure 5 — convergence comparison (algorithm)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def plot_fig5(log_dir: str, fig_dir: str):
+    df = _safe_load(os.path.join(log_dir, "block_d_summary.csv"))
+    if df is None:
+        print("  [Fig5] block_d_summary.csv not found, skipping.")
+        return
+
+    fig, ax = plt.subplots()
+    for algo in ["GMAPPO", "MAPPO"]:
+        sub = df[df["algorithm"] == algo].sort_values("episode")
+        if sub.empty:
+            continue
+        ax.plot(sub["episode"], sub["mean"],
+                marker=ALGO_MARKERS.get(algo, "o"),
+                color=ALGO_COLORS.get(algo, "gray"),
+                label=algo, linewidth=1.5)
+        ax.fill_between(sub["episode"],
+                        sub["mean"] - sub["std"],
+                        sub["mean"] + sub["std"],
+                        alpha=0.15, color=ALGO_COLORS.get(algo, "gray"))
+
+    ax.set_xlabel("Training episode")
+    ax.set_ylabel("Mean episodic reward")
+    ax.set_title("Convergence Comparison — RC2 Algorithms")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.savefig(os.path.join(fig_dir, "Fig5_RC2_convergence_algorithms.png"))
+    plt.close(fig)
+    print("  [Fig5] saved.")
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Main entry
 # ═══════════════════════════════════════════════════════════════════════════
@@ -202,6 +238,7 @@ def generate_all_figures(log_dir: str = "P2/logs",
     plot_fig2(log_dir, fig_dir)
     plot_fig3(log_dir, fig_dir)
     plot_fig4(log_dir, fig_dir)
+    plot_fig5(log_dir, fig_dir)
     print("Done.\n")
 
 

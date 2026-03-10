@@ -38,7 +38,7 @@ def _worker_block_a(
                        max_steps=n_windows * 20 + 50)
     rng = np.random.default_rng(seed)
 
-    agent = ImprovedMATD3(cfg.N_src, cfg, lr=lr)
+    agent = ImprovedMATD3(min(cfg.N_src, cfg.node_counts["buoy"]), cfg, lr=lr)
     records: List[Dict[str, Any]] = []
     for ep in range(n_episodes):
         info = agent.train_episode(env, n_windows=n_windows, rng=rng)
@@ -67,7 +67,7 @@ def run_block_a(
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
         (lr, seed, n_episodes, n_windows)

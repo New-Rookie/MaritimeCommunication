@@ -4,7 +4,11 @@ Experiment Block D — Closed-loop total-data-volume variation (parallelised).
 Fix eta_B=eta_F=eta_S=1.0, N_total=120.
 Sweep M_tot over {20, 40, 60, 80, 100} Mbit.
 Compare: Improved MATD3, MATD3, Greedy, GA, ACO.
-Primary metrics: average T_total and average E_total.
+Primary metrics: average T_total, average E_total, and throughput mean_Gamma.
+
+The total-volume setting M_tot is interpreted as the aggregate volume generated
+by the currently active source buoys in each window; source activation is
+controlled via source_activation_ratio (data-generation frequency proxy).
 
 Output: block_d_raw.csv, block_d_summary.csv
 """
@@ -30,10 +34,11 @@ from P3.algorithms.aco import ACOAllocator
 from P3.algorithms.ga import GAAllocator
 
 M_TOT_VALUES = [20e6, 40e6, 60e6, 80e6, 100e6]
-N_SEEDS = 10
-N_TRAIN = 120
-N_EVAL = 40
+N_SEEDS = 8
+N_TRAIN = 70
+N_EVAL = 20
 ALGO_NAMES = ["Improved_MATD3", "MATD3", "Greedy", "ACO", "GA"]
+SOURCE_ACTIVATION_RATIO = 0.6
 
 
 def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
@@ -53,11 +58,15 @@ def _worker_block_d(
     args: Tuple[float, int, str, int, int],
 ) -> List[Dict[str, Any]]:
     m_tot, seed, algo_name, n_train, n_eval = args
-    cfg = EnvConfig(N_total=20, M_tot=m_tot, print_diagnostics=False)
+    cfg = EnvConfig(
+        N_total=20, M_tot=m_tot,
+        source_activation_ratio=SOURCE_ACTIVATION_RATIO,
+        print_diagnostics=False,
+    )
     env = MarineIoTEnv(cfg, mode="resource_mgmt",
                        max_steps=n_eval * 20 + 100)
     rng = np.random.default_rng(seed)
-    n = cfg.N_src
+    n = min(cfg.N_src, cfg.node_counts["buoy"])
 
     if algo_name == "Improved_MATD3":
         agent = ImprovedMATD3(n, cfg, lr=3e-4)
@@ -87,6 +96,7 @@ def _worker_block_d(
         "mean_T_total": mean_T,
         "mean_E_total": mean_E,
         "mean_Gamma": mean_G,
+        "source_activation_ratio": SOURCE_ACTIVATION_RATIO,
     }]
 
 
@@ -99,7 +109,7 @@ def run_block_d(
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
         (m_tot, seed, algo, n_train, n_eval)

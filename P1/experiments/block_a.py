@@ -25,7 +25,7 @@ from P1.protocols.aloha import ALOHAProtocol
 
 
 ETA_N_VALUES = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
-N_SEEDS = 10
+N_SEEDS = 8
 N_WINDOWS = 10
 
 
@@ -77,7 +77,7 @@ def run_block_a(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
     """Execute Block A and return aggregated results."""
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     args_list = [(eta_n, seed, n_windows)
                  for eta_n in ETA_N_VALUES

@@ -1,7 +1,7 @@
 """
 Plot generation for Research Content 3 experiments.
 
-Produces 9 figures as specified in Experiment Manual III:
+Produces 12 figures as specified in Experiment Manual III:
   Fig1  — Improved MATD3 reward curve under learning-rate sweep
   Fig2  — Average T_total vs eta_B  (algorithm comparison)
   Fig3  — Average T_total vs eta_F
@@ -11,6 +11,9 @@ Produces 9 figures as specified in Experiment Manual III:
   Fig7  — Average E_total vs eta_S
   Fig8  — Average T_total vs M_tot
   Fig9  — Average E_total vs M_tot
+  Fig10 — Throughput vs resource scaling (eta_B/eta_F/eta_S)
+  Fig11 — Throughput vs M_tot
+  Fig12 — Convergence comparison across algorithms
 """
 
 from __future__ import annotations
@@ -260,6 +263,96 @@ def plot_fig9(log_dir: str, fig_dir: str):
     print("  [Fig9] saved.")
 
 
+
+
+def plot_fig10(log_dir: str, fig_dir: str):
+    df = _safe_load(os.path.join(log_dir, "block_b_throughput_summary.csv"))
+    if df is None:
+        print("  [Fig10] block_b_throughput_summary.csv not found, skipping.")
+        return
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), sharey=True)
+    for ax, eta_type, title in zip(
+        axes,
+        ["eta_B", "eta_F", "eta_S"],
+        ["Bandwidth Scaling", "Compute Scaling", "Storage Scaling"],
+    ):
+        sub_all = df[df["eta_type"] == eta_type]
+        for algo in ["Improved_MATD3", "MATD3", "Greedy", "ACO", "GA"]:
+            sub = sub_all[sub_all["algorithm"] == algo].sort_values("eta_value")
+            if sub.empty:
+                continue
+            ax.errorbar(sub["eta_value"], sub["mean"], yerr=sub["std"],
+                        marker=ALGO_MARKERS.get(algo, "o"),
+                        color=ALGO_COLORS.get(algo, "gray"),
+                        label=ALGO_LABELS.get(algo, algo), capsize=3, linewidth=1.3)
+        ax.set_title(title)
+        ax.set_xlabel("Scaling factor")
+        ax.grid(True, alpha=0.3)
+
+    axes[0].set_ylabel("Average Throughput $\Gamma$ (bit/s)")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=5, bbox_to_anchor=(0.5, 1.05))
+    fig.suptitle("Algorithm Comparison — Throughput vs Resource Scaling", y=1.12)
+    fig.savefig(os.path.join(fig_dir, "Fig10_RC3_throughput_vs_resources.png"))
+    plt.close(fig)
+    print("  [Fig10] saved.")
+
+
+def plot_fig11(log_dir: str, fig_dir: str):
+    df = _safe_load(os.path.join(log_dir, "block_d_summary.csv"))
+    if df is None:
+        print("  [Fig11] block_d_summary.csv not found, skipping.")
+        return
+
+    fig, ax = plt.subplots()
+    for algo in ["Improved_MATD3", "MATD3", "Greedy", "ACO", "GA"]:
+        sub = df[df["algorithm"] == algo].sort_values("M_tot_Mbit")
+        if sub.empty:
+            continue
+        ax.errorbar(sub["M_tot_Mbit"], sub["mean_Gamma"], yerr=sub["std_Gamma"],
+                    marker=ALGO_MARKERS.get(algo, "o"),
+                    color=ALGO_COLORS.get(algo, "gray"),
+                    label=ALGO_LABELS.get(algo, algo), capsize=3, linewidth=1.5)
+    ax.set_xlabel("Total data volume $M_{tot}$ (Mbit)")
+    ax.set_ylabel("Average Throughput $\Gamma$ (bit/s)")
+    ax.set_title("Algorithm Comparison — Throughput vs Data Volume")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.savefig(os.path.join(fig_dir, "Fig11_RC3_throughput_vs_Mtot.png"))
+    plt.close(fig)
+    print("  [Fig11] saved.")
+
+
+def plot_fig12(log_dir: str, fig_dir: str):
+    df = _safe_load(os.path.join(log_dir, "block_e_summary.csv"))
+    if df is None:
+        print("  [Fig12] block_e_summary.csv not found, skipping.")
+        return
+
+    fig, ax = plt.subplots()
+    for algo in ["Improved_MATD3", "MATD3"]:
+        sub = df[df["algorithm"] == algo].sort_values("episode")
+        if sub.empty:
+            continue
+        ax.plot(sub["episode"], sub["mean"],
+                marker=ALGO_MARKERS.get(algo, "o"),
+                color=ALGO_COLORS.get(algo, "gray"),
+                label=ALGO_LABELS.get(algo, algo), linewidth=1.5)
+        ax.fill_between(sub["episode"],
+                        sub["mean"] - sub["std"],
+                        sub["mean"] + sub["std"],
+                        alpha=0.15, color=ALGO_COLORS.get(algo, "gray"))
+
+    ax.set_xlabel("Training episode")
+    ax.set_ylabel("Mean episodic reward")
+    ax.set_title("Convergence Comparison — RC3 Algorithms")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.savefig(os.path.join(fig_dir, "Fig12_RC3_convergence_algorithms.png"))
+    plt.close(fig)
+    print("  [Fig12] saved.")
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Main entry
 # ═══════════════════════════════════════════════════════════════════════════
@@ -279,6 +372,9 @@ def generate_all_figures(
     plot_fig7(log_dir, fig_dir)
     plot_fig8(log_dir, fig_dir)
     plot_fig9(log_dir, fig_dir)
+    plot_fig10(log_dir, fig_dir)
+    plot_fig11(log_dir, fig_dir)
+    plot_fig12(log_dir, fig_dir)
     print("Done.\n")
 
 
