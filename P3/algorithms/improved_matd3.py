@@ -321,7 +321,7 @@ class ImprovedMATD3:
 
         cfg = self.cfg
         obs, info = env.reset()
-        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng)
+        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng, cfg.source_activation_ratio)
         self._obs_history.clear()
         queue = QueueState()
 
@@ -394,7 +394,7 @@ class ImprovedMATD3:
             rng = np.random.default_rng()
 
         cfg = self.cfg
-        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng)
+        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng, cfg.source_activation_ratio)
         env.recompute_ground_truth()
         local_map, edge_map = self.build_assignments(env, source_ids)
         actions, _ = self.select_actions(

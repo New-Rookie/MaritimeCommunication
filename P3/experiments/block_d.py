@@ -31,8 +31,8 @@ from P3.algorithms.ga import GAAllocator
 
 M_TOT_VALUES = [20e6, 40e6, 60e6, 80e6, 100e6]
 N_SEEDS = 10
-N_TRAIN = 50
-N_EVAL = 10
+N_TRAIN = 120
+N_EVAL = 40
 ALGO_NAMES = ["Improved_MATD3", "MATD3", "Greedy", "ACO", "GA"]
 
 
@@ -40,19 +40,20 @@ def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
     for _ in range(n_train):
         agent.train_episode(env, n_windows=5, rng=rng)
     env.reset()
-    T_vals, E_vals = [], []
+    T_vals, E_vals, G_vals = [], [], []
     for _ in range(n_eval):
         m = agent.eval_window(env, rng=rng)
         T_vals.append(m["mean_T_total"])
         E_vals.append(m["mean_E_total"])
-    return float(np.mean(T_vals)), float(np.mean(E_vals))
+        G_vals.append(m["mean_Gamma"])
+    return float(np.mean(T_vals)), float(np.mean(E_vals)), float(np.mean(G_vals))
 
 
 def _worker_block_d(
     args: Tuple[float, int, str, int, int],
 ) -> List[Dict[str, Any]]:
     m_tot, seed, algo_name, n_train, n_eval = args
-    cfg = EnvConfig(N_total=120, M_tot=m_tot, print_diagnostics=False)
+    cfg = EnvConfig(N_total=20, M_tot=m_tot, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="resource_mgmt",
                        max_steps=n_eval * 20 + 100)
     rng = np.random.default_rng(seed)
@@ -60,22 +61,22 @@ def _worker_block_d(
 
     if algo_name == "Improved_MATD3":
         agent = ImprovedMATD3(n, cfg, lr=3e-4)
-        mean_T, mean_E = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
     elif algo_name == "MATD3":
         agent = MATD3(n, cfg, lr=3e-4)
-        mean_T, mean_E = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
     elif algo_name == "Greedy":
         agent = GreedyAllocator(n, cfg)
         r = agent.run_episode(env, n_eval, rng)
-        mean_T, mean_E = r["mean_T_total"], r["mean_E_total"]
+        mean_T, mean_E, mean_G = r["mean_T_total"], r["mean_E_total"], r.get("mean_Gamma", 0.0)
     elif algo_name == "ACO":
         agent = ACOAllocator(n, cfg)
         r = agent.run_episode(env, n_eval, rng)
-        mean_T, mean_E = r["mean_T_total"], r["mean_E_total"]
+        mean_T, mean_E, mean_G = r["mean_T_total"], r["mean_E_total"], r.get("mean_Gamma", 0.0)
     else:
         agent = GAAllocator(n, cfg)
         r = agent.run_episode(env, n_eval, rng)
-        mean_T, mean_E = r["mean_T_total"], r["mean_E_total"]
+        mean_T, mean_E, mean_G = r["mean_T_total"], r["mean_E_total"], r.get("mean_Gamma", 0.0)
 
     env.close()
     return [{
@@ -85,6 +86,7 @@ def _worker_block_d(
         "algorithm": algo_name,
         "mean_T_total": mean_T,
         "mean_E_total": mean_E,
+        "mean_Gamma": mean_G,
     }]
 
 
@@ -124,6 +126,7 @@ def run_block_d(
     summary = df.groupby(["M_tot_Mbit", "algorithm"]).agg(
         mean_T=("mean_T_total", "mean"), std_T=("mean_T_total", "std"),
         mean_E=("mean_E_total", "mean"), std_E=("mean_E_total", "std"),
+        mean_Gamma=("mean_Gamma", "mean"), std_Gamma=("mean_Gamma", "std"),
     ).reset_index()
     summary.to_csv(os.path.join(log_dir, "block_d_summary.csv"), index=False)
     return summary

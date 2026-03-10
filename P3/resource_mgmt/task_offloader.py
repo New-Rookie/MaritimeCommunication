@@ -353,10 +353,14 @@ def simulate_offloading(
 
 
 def select_source_buoys(
-    nodes, n_src: int, rng: np.random.Generator,
+    nodes, n_src: int, rng: np.random.Generator, source_activation_ratio: float = 1.0,
 ) -> List[int]:
-    """Pick n_src buoy node IDs at random."""
+    """Pick active source buoy IDs for the current window."""
     buoy_ids = [n.node_id for n in nodes if n.node_type == "buoy"]
-    if len(buoy_ids) <= n_src:
+    if not buoy_ids:
+        return []
+    target = max(1, int(round(n_src * float(np.clip(source_activation_ratio, 0.1, 1.0)))))
+    target = min(target, len(buoy_ids))
+    if len(buoy_ids) <= target:
         return buoy_ids
-    return list(rng.choice(buoy_ids, size=n_src, replace=False))
+    return list(rng.choice(buoy_ids, size=target, replace=False))
