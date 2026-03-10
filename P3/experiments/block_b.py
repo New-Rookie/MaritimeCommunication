@@ -72,7 +72,7 @@ def _worker_block_bc(
     env = MarineIoTEnv(cfg, mode="resource_mgmt",
                        max_steps=n_eval * 20 + 100)
     rng = np.random.default_rng(seed)
-    n = cfg.N_src
+    n = min(cfg.N_src, cfg.node_counts["buoy"])
 
     if algo_name == "Improved_MATD3":
         agent = ImprovedMATD3(n, cfg, lr=3e-4)

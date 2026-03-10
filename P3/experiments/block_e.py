@@ -17,7 +17,7 @@ def _worker(args):
     cfg=EnvConfig(N_total=20, print_diagnostics=False)
     env=MarineIoTEnv(cfg, mode='resource_mgmt', max_steps=n_windows*20+50)
     rng=np.random.default_rng(seed)
-    agent = ImprovedMATD3(cfg.N_src,cfg,lr=3e-4) if algo=='Improved_MATD3' else MATD3(cfg.N_src,cfg,lr=3e-4)
+    agent = ImprovedMATD3(min(cfg.N_src, cfg.node_counts["buoy"]),cfg,lr=3e-4) if algo=='Improved_MATD3' else MATD3(min(cfg.N_src, cfg.node_counts["buoy"]),cfg,lr=3e-4)
     rows=[]
     for ep in range(n_episodes):
         info=agent.train_episode(env,n_windows=n_windows,rng=rng)
