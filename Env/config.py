@@ -55,6 +55,7 @@ class EnvConfig:
     pi_buoy: float = 0.40
     pi_land: float = 0.15
     N_src: int = 10
+    source_activation_ratio: float = 1.0  # fraction of source buoys active per window
 
     # ── Time / mobility ──────────────────────────────────────────────────
     delta_t_sim: float = 20.0        # ms
@@ -201,8 +202,12 @@ class EnvConfig:
         return counts
 
     @property
+    def active_source_count(self) -> int:
+        return max(1, int(round(self.N_src * np.clip(self.source_activation_ratio, 0.1, 1.0))))
+
+    @property
     def M_b(self) -> float:
-        return self.M_tot / max(1, self.N_src)
+        return self.M_tot / max(1, self.active_source_count())
 
     @property
     def gamma_link_linear(self) -> float:

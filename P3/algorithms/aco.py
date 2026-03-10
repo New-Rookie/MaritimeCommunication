@@ -52,7 +52,7 @@ class ACOAllocator:
             rng = np.random.default_rng()
         cfg = self.cfg
         obs, _ = env.reset()
-        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng)
+        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng, cfg.source_activation_ratio)
         self._pheromone.clear()
 
         ep_T, ep_E, ep_G, ep_suc = [], [], [], []

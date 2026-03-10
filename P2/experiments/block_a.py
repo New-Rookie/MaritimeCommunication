@@ -30,7 +30,7 @@ from P2.algorithms.gmappo import GMAPPO
 
 LR_VALUES = [1e-4, 3e-4, 1e-3]
 N_SEEDS = 5
-N_EPISODES = 100
+N_EPISODES = 80
 N_WINDOWS_PER_EP = 5
 
 
@@ -42,7 +42,7 @@ def _worker_block_a(
     """Train one (lr, seed) configuration and return per-episode records."""
     lr, seed, estimator_path, n_episodes, n_windows = args
 
-    cfg = EnvConfig(N_total=120, eta_ch=1.0, print_diagnostics=False)
+    cfg = EnvConfig(N_total=30, eta_ch=1.0, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="link_selection",
                        max_steps=n_windows * 20 + 50)
     rng = np.random.default_rng(seed)

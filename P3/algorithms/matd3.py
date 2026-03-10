@@ -209,7 +209,7 @@ class MATD3:
             rng = np.random.default_rng()
         cfg = self.cfg
         obs, _ = env.reset()
-        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng)
+        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng, cfg.source_activation_ratio)
         queue = QueueState()
         ep_rewards, ep_T, ep_E, ep_G = [], [], [], []
 
@@ -257,7 +257,7 @@ class MATD3:
         if rng is None:
             rng = np.random.default_rng()
         cfg = self.cfg
-        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng)
+        source_ids = select_source_buoys(env.nodes, cfg.N_src, rng, cfg.source_activation_ratio)
         env.recompute_ground_truth()
         local_map, edge_map = self.build_assignments(env, source_ids)
         actions = self.select_actions(env, source_ids, local_map, edge_map, explore=False)

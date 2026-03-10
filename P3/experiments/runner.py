@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
 from P3.experiments.block_a import run_block_a
 from P3.experiments.block_b import run_block_bc
 from P3.experiments.block_d import run_block_d
+from P3.experiments.block_e import run_block_e
 
 
 BLOCK_MAP = {
@@ -28,13 +29,15 @@ BLOCK_MAP = {
     "B": "run_block_bc",
     "C": "run_block_bc",
     "D": "run_block_d",
+    "E": "run_block_e",
 }
 
 BLOCK_DESC = {
     "A": "Improved MATD3 learning-rate sweep (reward curve)",
     "B": "Average delay under resource scaling (eta_B/eta_F/eta_S)",
     "C": "Average energy under resource scaling (eta_B/eta_F/eta_S)",
-    "D": "Delay + Energy under data-volume variation (M_tot sweep)",
+    "D": "Delay + Energy + Throughput under data-volume variation (M_tot sweep)",
+    "E": "Convergence comparison (Improved MATD3 vs MATD3)",
 }
 
 
@@ -42,7 +45,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="RC3 Resource Management Experiment Runner")
     parser.add_argument("--blocks", nargs="*",
-                        default=["A", "B", "C", "D"],
+                        default=["A", "B", "C", "D", "E"],
                         help="Blocks to run (default: all)")
     parser.add_argument("--log-dir", default="P3/logs",
                         help="Output directory for CSV logs")
@@ -124,6 +127,13 @@ def main():
                 kw["n_train"] = 10
                 kw["n_eval"] = 3
             run_block_d(log_dir=args.log_dir, **kw)
+
+        elif block_id == "E":
+            kw = {**worker_kw}
+            if args.quick:
+                kw["n_seeds"] = 2
+                kw["n_episodes"] = 10
+            run_block_e(log_dir=args.log_dir, **kw)
 
         elapsed = time.time() - t0
         print(f"  Completed in {elapsed:.1f}s")

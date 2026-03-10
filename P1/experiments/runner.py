@@ -23,6 +23,7 @@ from P1.experiments.block_b import run_block_b
 from P1.experiments.block_c import run_block_c
 from P1.experiments.block_d import run_block_d
 from P1.experiments.block_e import run_block_e
+from P1.experiments.block_f import run_block_f
 
 
 BLOCK_MAP = {
@@ -31,6 +32,7 @@ BLOCK_MAP = {
     "C": run_block_c,
     "D": run_block_d,
     "E": run_block_e,
+    "F": run_block_f,
 }
 
 BLOCK_DESC = {
@@ -39,6 +41,7 @@ BLOCK_DESC = {
     "C": "Learning-rate sweep (Improved IPPO reward curve)",
     "D": "Algorithm comparison vs noise (E_ND)",
     "E": "Algorithm comparison vs node count (E_ND)",
+    "F": "Convergence comparison (Improved IPPO vs IPPO)",
 }
 
 
@@ -104,6 +107,12 @@ def main():
             kw = {**quick_kw, **worker_kw}
             if args.quick:
                 kw["n_train"] = 10
+            BLOCK_MAP[block_id](log_dir=args.log_dir, **kw)
+        elif block_id == "F":
+            kw = {**worker_kw}
+            if args.quick:
+                kw["n_episodes"] = 10
+                kw["n_seeds"] = 2
             BLOCK_MAP[block_id](log_dir=args.log_dir, **kw)
         else:
             BLOCK_MAP[block_id](log_dir=args.log_dir, **quick_kw, **worker_kw)
