@@ -207,7 +207,7 @@ class EnvConfig:
 
     @property
     def M_b(self) -> float:
-        return self.M_tot / max(1, self.active_source_count)
+        return self.M_tot / max(1, self.active_source_count())
 
     @property
     def gamma_link_linear(self) -> float:
