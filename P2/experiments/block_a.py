@@ -85,7 +85,7 @@ def run_block_a(
     os.makedirs(log_dir, exist_ok=True)
 
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     # Resolve estimator path so every worker can load independently
     if estimator_path is None:

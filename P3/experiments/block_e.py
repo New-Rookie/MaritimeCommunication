@@ -9,7 +9,7 @@ from Env.core_env import MarineIoTEnv
 from P3.algorithms.improved_matd3 import ImprovedMATD3
 from P3.algorithms.matd3 import MATD3
 
-N_SEEDS=5; N_EPISODES=80; N_WINDOWS=5
+N_SEEDS=6; N_EPISODES=60; N_WINDOWS=5
 ALGO_NAMES=['Improved_MATD3','MATD3']
 
 def _worker(args):
@@ -26,7 +26,7 @@ def _worker(args):
 
 def run_block_e(log_dir='P3/logs', n_seeds=N_SEEDS, n_episodes=N_EPISODES, n_windows=N_WINDOWS, n_workers=None):
     os.makedirs(log_dir,exist_ok=True)
-    n_workers=min(os.cpu_count() or 1,32) if n_workers is None else n_workers
+    n_workers=min(os.cpu_count() or 1,48) if n_workers is None else n_workers
     units=[(a,s,n_episodes,n_windows) for a in ALGO_NAMES for s in range(n_seeds)]
     rows=[]
     with ProcessPoolExecutor(max_workers=n_workers) as pool:

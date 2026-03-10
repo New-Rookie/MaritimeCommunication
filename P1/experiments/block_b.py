@@ -22,8 +22,8 @@ from P1.protocols.indp import INDPProtocol
 from P1.protocols.disco import DiscoProtocol
 from P1.protocols.aloha import ALOHAProtocol
 
-N_TOTAL_VALUES = [40, 80, 120, 160, 200]
-N_SEEDS = 20
+N_TOTAL_VALUES = [40, 60, 80, 100, 120]
+N_SEEDS = 8
 N_WINDOWS = 10
 
 
@@ -73,7 +73,7 @@ def run_block_b(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
                 n_windows: int = N_WINDOWS, n_workers: int = None) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     args_list = [(n_total, seed, n_windows)
                  for n_total in N_TOTAL_VALUES

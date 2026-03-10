@@ -26,9 +26,9 @@ from P1.algorithms.greedy import GreedyOptimizer
 from P1.algorithms.aco import ACOOptimizer
 from P1.algorithms.ga import GAOptimizer
 
-N_TOTAL_VALUES = [40, 80, 120, 160, 200]
-N_SEEDS = 10
-N_TRAIN_EPISODES = 50
+N_TOTAL_VALUES = [40, 60, 80, 100, 120]
+N_SEEDS = 8
+N_TRAIN_EPISODES = 40
 N_EVAL_WINDOWS = 10
 
 ALGO_NAMES = ["Improved_IPPO", "IPPO", "Greedy", "ACO", "GA"]
@@ -96,7 +96,7 @@ def run_block_e(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
                 n_workers: int = None) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     args_list = [(n_total, seed, algo_name, n_train, n_eval)
                  for n_total in N_TOTAL_VALUES

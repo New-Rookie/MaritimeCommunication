@@ -33,9 +33,9 @@ from P2.algorithms.aco import ACOSelector
 from P2.algorithms.ga import GASelector
 
 N_TOTAL_VALUES = [10, 15, 20, 25, 30]
-N_SEEDS = 10
-N_TRAIN_EPISODES = 40
-N_EVAL_WINDOWS = 20
+N_SEEDS = 8
+N_TRAIN_EPISODES = 30
+N_EVAL_WINDOWS = 15
 ALGO_NAMES = ["GMAPPO", "MAPPO", "Greedy", "ACO", "GA"]
 
 
@@ -118,7 +118,7 @@ def run_block_b(
     os.makedirs(log_dir, exist_ok=True)
 
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     if estimator_path is None:
         default_path = os.path.join(log_dir, "rf_estimator.pkl")

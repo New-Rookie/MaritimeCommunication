@@ -67,7 +67,7 @@ def run_block_a(
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
         (lr, seed, n_episodes, n_windows)

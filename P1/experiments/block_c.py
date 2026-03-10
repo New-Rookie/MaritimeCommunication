@@ -64,7 +64,7 @@ def run_block_c(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
                 n_workers: int = None) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     args_list = [(lr, seed, n_episodes, n_windows)
                  for lr in LR_VALUES
