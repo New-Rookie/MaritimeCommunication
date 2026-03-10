@@ -22,6 +22,7 @@ from P2.experiments.block_p import run_block_p
 from P2.experiments.block_a import run_block_a
 from P2.experiments.block_b import run_block_b
 from P2.experiments.block_c import run_block_c
+from P2.experiments.block_d import run_block_d
 from P2.link_quality.rf_estimator import LinkQualityEstimator
 
 
@@ -30,6 +31,7 @@ BLOCK_MAP = {
     "A": "run_block_a",
     "B": "run_block_b",
     "C": "run_block_c",
+    "D": "run_block_d",
 }
 
 BLOCK_DESC = {
@@ -37,6 +39,7 @@ BLOCK_DESC = {
     "A": "GMAPPO learning-rate sweep (reward curve)",
     "B": "Algorithm comparison vs N_total (LA chart)",
     "C": "Algorithm comparison vs eta_ch (LA chart)",
+    "D": "Convergence comparison (GMAPPO vs MAPPO)",
 }
 
 
@@ -132,6 +135,16 @@ def main():
                 kw["n_seeds"] = 2
                 kw["n_train"] = 10
             run_block_c(log_dir=args.log_dir, **kw)
+
+
+        elif block_id == "D":
+            if estimator is None:
+                estimator = _load_estimator(args.log_dir)
+            kw = {"estimator_path": estimator_path, **worker_kw}
+            if args.quick:
+                kw["n_seeds"] = 2
+                kw["n_episodes"] = 10
+            run_block_d(log_dir=args.log_dir, **kw)
 
         elapsed = time.time() - t0
         print(f"  Block {block_id} completed in {elapsed:.1f}s")

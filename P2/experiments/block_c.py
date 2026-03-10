@@ -34,8 +34,8 @@ from P2.algorithms.ga import GASelector
 
 ETA_CH_VALUES = [0.75, 1.0, 1.25, 1.5]
 N_SEEDS = 10
-N_TRAIN_EPISODES = 50
-N_EVAL_WINDOWS = 10
+N_TRAIN_EPISODES = 40
+N_EVAL_WINDOWS = 20
 ALGO_NAMES = ["GMAPPO", "MAPPO", "Greedy", "ACO", "GA"]
 
 
@@ -63,7 +63,7 @@ def _worker_block_c(
     """Run one (eta_ch, seed, algorithm) configuration."""
     eta_ch, seed, algo_name, estimator_path, n_train, n_eval = args
 
-    cfg = EnvConfig(N_total=120, eta_ch=eta_ch, print_diagnostics=False)
+    cfg = EnvConfig(N_total=30, eta_ch=eta_ch, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="link_selection",
                        max_steps=n_eval * 20 + 100)
     rng = np.random.default_rng(seed)
@@ -72,7 +72,7 @@ def _worker_block_c(
     if estimator_path and os.path.exists(estimator_path):
         estimator.load(estimator_path)
 
-    n = 120
+    n = 30
 
     if algo_name == "GMAPPO":
         agent = GMAPPO(n, cfg, estimator, lr=3e-4)

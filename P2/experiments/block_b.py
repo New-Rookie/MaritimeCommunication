@@ -32,10 +32,10 @@ from P2.algorithms.greedy import GreedySelector
 from P2.algorithms.aco import ACOSelector
 from P2.algorithms.ga import GASelector
 
-N_TOTAL_VALUES = [40, 80, 120, 160, 200]
+N_TOTAL_VALUES = [10, 15, 20, 25, 30]
 N_SEEDS = 10
-N_TRAIN_EPISODES = 50
-N_EVAL_WINDOWS = 10
+N_TRAIN_EPISODES = 40
+N_EVAL_WINDOWS = 20
 ALGO_NAMES = ["GMAPPO", "MAPPO", "Greedy", "ACO", "GA"]
 
 
