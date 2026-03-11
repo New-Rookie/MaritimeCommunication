@@ -1,7 +1,7 @@
 """
 Experiment Block C — Algorithm comparison under channel-condition variation (parallelised).
 
-Fix N_total = 120, sweep eta_ch in {0.75, 1.0, 1.25, 1.5}.
+Fix N_total = 20, sweep eta_ch in {0.75, 1.0, 1.25, 1.5}.
 Compare GMAPPO / MAPPO / Greedy / ACO / GA.
 Primary metric: mean LA_pi.
 
@@ -33,17 +33,17 @@ from P2.algorithms.aco import ACOSelector
 from P2.algorithms.ga import GASelector
 
 ETA_CH_VALUES = [0.75, 1.0, 1.25, 1.5]
-N_SEEDS = 10
-N_TRAIN_EPISODES = 40
-N_EVAL_WINDOWS = 20
+N_SEEDS = 1
+N_TRAIN_EPISODES = 30
+N_EVAL_WINDOWS = 15
 ALGO_NAMES = ["GMAPPO", "MAPPO", "Greedy", "ACO", "GA"]
 
 
 # ── top-level helpers (picklable) ───────────────────────────────────────────
 
-def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
+def _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train=10):
     for _ in range(n_train):
-        agent.train_episode(env, n_windows=5, rng=rng)
+        agent.train_episode(env, n_windows=n_windows_train, rng=rng)
     env.reset()
     las = []
     for _ in range(n_eval):
@@ -58,12 +58,12 @@ def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
 
 
 def _worker_block_c(
-    args: Tuple[float, int, str, str | None, int, int],
+    args: Tuple[float, int, str, str | None, int, int, str],
 ) -> List[Dict[str, Any]]:
     """Run one (eta_ch, seed, algorithm) configuration."""
-    eta_ch, seed, algo_name, estimator_path, n_train, n_eval = args
+    eta_ch, seed, algo_name, estimator_path, n_train, n_eval, n_windows_train, device = args
 
-    cfg = EnvConfig(N_total=30, eta_ch=eta_ch, print_diagnostics=False)
+    cfg = EnvConfig(N_total=20, eta_ch=eta_ch, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="link_selection",
                        max_steps=n_eval * 20 + 100)
     rng = np.random.default_rng(seed)
@@ -75,11 +75,11 @@ def _worker_block_c(
     n = 30
 
     if algo_name == "GMAPPO":
-        agent = GMAPPO(n, cfg, estimator, lr=3e-4)
-        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = GMAPPO(n, cfg, estimator, lr=3e-4, device=device)
+        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "MAPPO":
-        agent = MAPPO(n, cfg, estimator, lr=3e-4)
-        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = MAPPO(n, cfg, estimator, lr=3e-4, device=device)
+        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "Greedy":
         agent = GreedySelector(n, cfg, estimator)
         result = agent.run_episode(env, n_eval, rng)
@@ -113,12 +113,14 @@ def run_block_c(
     n_seeds: int = N_SEEDS,
     n_train: int = N_TRAIN_EPISODES,
     n_eval: int = N_EVAL_WINDOWS,
+    n_windows_train: int = 10,
     n_workers: int | None = None,
+    device: str = "cpu",
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
 
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     if estimator_path is None:
         default_path = os.path.join(log_dir, "rf_estimator.pkl")
@@ -129,7 +131,7 @@ def run_block_c(
             estimator_path = default_path
 
     work_units = [
-        (eta_ch, seed, algo_name, estimator_path, n_train, n_eval)
+        (eta_ch, seed, algo_name, estimator_path, n_train, n_eval, n_windows_train, device)
         for eta_ch in ETA_CH_VALUES
         for seed in range(n_seeds)
         for algo_name in ALGO_NAMES

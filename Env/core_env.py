@@ -33,6 +33,7 @@ from .phy import (
     compute_rssi,
     compute_all_links,
     compute_all_links_vectorized,
+    compute_gt_snr_matrix_vectorized,
     communication_range_estimate,
     shannon_rate,
     LinkPHY,
@@ -199,43 +200,57 @@ class MarineIoTEnv(gym.Env):
 
     def _update_ground_truth_topology(self):
         """
-        Compute A_gt based on whether each node pair CAN communicate
-        given current positions and maximum transmit power.
+        Compute A_gt using vectorized expected-SNR matrix + contact-duration.
 
         Per Manuscript I:
           A_gt,ij(w) = 1{ E[SNR_ij(d)] >= gamma_link }
 
-        GT uses the fixed reference noise level (gt_eta_N) so that the
-        ground-truth topology is independent of the experiment's noise
-        parameter — only geometry and channel quality determine GT edges.
-
-        The contact-duration condition (T_min) is checked via a velocity-
-        based range-departure estimate: the pair must remain in range for
-        at least T_min at current relative velocity.
+        GT uses fixed reference noise level (gt_eta_N). The same physical
+        formulas are preserved; only computation is batched.
         """
         n = self.n_agents
         gt = np.zeros((n, n), dtype=bool)
+        if n <= 1:
+            self._gt_adj = gt
+            return
+
         gamma_lin = self.cfg.gamma_link_linear
         t_min_s = self.cfg.T_min * 1e-3  # ms -> s
 
-        saved_eta_N = self.cfg.eta_N
-        self.cfg.eta_N = self.cfg.gt_eta_N
+        # Directed expected SNR matrix at GT noise scale, then symmetrize by max.
+        snr_dir = compute_gt_snr_matrix_vectorized(
+            self.nodes, self.cfg, step_count=self._step_count, n_samples=8)
+        snr_best = np.maximum(snr_dir, snr_dir.T)
 
-        for i in range(n):
-            for j in range(i + 1, n):
-                ni, nj = self.nodes[i], self.nodes[j]
-                snr_ij = self._channel_snr(ni, nj)
-                snr_ji = self._channel_snr(nj, ni)
-                snr_best = max(snr_ij, snr_ji)
+        # Candidate undirected edges by channel quality.
+        cand = snr_best >= gamma_lin
+        np.fill_diagonal(cand, False)
 
-                if snr_best < gamma_lin:
-                    continue
+        # Contact-duration filter (kept mathematically consistent with scalar logic).
+        positions = np.stack([nd.position for nd in self.nodes])
+        velocities = np.stack([nd.velocity for nd in self.nodes])
+        rel_v = velocities[:, None, :] - velocities[None, :, :]
+        rel_speed = np.linalg.norm(rel_v, axis=-1)
+        d_now = np.linalg.norm(positions[:, None, :] - positions[None, :, :], axis=-1)
 
-                if self._contact_duration_ok(ni, nj, t_min_s):
-                    gt[i, j] = True
-                    gt[j, i] = True
+        idx_i, idx_j = np.where(np.triu(cand, k=1))
+        for i, j in zip(idx_i.tolist(), idx_j.tolist()):
+            if rel_speed[i, j] < 0.1:
+                gt[i, j] = True
+                gt[j, i] = True
+                continue
 
-        self.cfg.eta_N = saved_eta_N
+            r_comm = communication_range_estimate(
+                self.nodes[i].node_type, self.nodes[j].node_type, self.cfg)
+            if d_now[i, j] > r_comm:
+                continue
+
+            margin = max(r_comm - float(d_now[i, j]), 0.0)
+            t_est = margin / float(rel_speed[i, j]) if rel_speed[i, j] > 0 else float("inf")
+            if t_est >= t_min_s:
+                gt[i, j] = True
+                gt[j, i] = True
+
         self._gt_adj = gt
 
     def _channel_snr(self, tx_node: "BaseNode", rx_node: "BaseNode") -> float:

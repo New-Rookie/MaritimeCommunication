@@ -34,14 +34,14 @@ from P3.algorithms.ga import GAAllocator
 
 ETA_VALUES = [0.5, 0.75, 1.0, 1.25, 1.5]
 ETA_TYPES = ["eta_B", "eta_F", "eta_S"]
-N_SEEDS = 10
-N_TRAIN = 120
-N_EVAL = 40
+N_SEEDS = 1
+N_TRAIN = 70
+N_EVAL = 20
 ALGO_NAMES = ["Improved_MATD3", "MATD3", "Greedy", "ACO", "GA"]
 
 
 def _make_cfg(eta_type: str, eta_val: float) -> EnvConfig:
-    kw = {"N_total": 20, "print_diagnostics": False}
+    kw = {"N_total": 15, "print_diagnostics": False}
     if eta_type == "eta_B":
         kw["eta_B"] = eta_val
     elif eta_type == "eta_F":
@@ -51,9 +51,9 @@ def _make_cfg(eta_type: str, eta_val: float) -> EnvConfig:
     return EnvConfig(**kw)
 
 
-def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
+def _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train=10):
     for _ in range(n_train):
-        agent.train_episode(env, n_windows=5, rng=rng)
+        agent.train_episode(env, n_windows=n_windows_train, rng=rng)
     env.reset()
     T_vals, E_vals, G_vals = [], [], []
     for _ in range(n_eval):
@@ -65,21 +65,21 @@ def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
 
 
 def _worker_block_bc(
-    args: Tuple[str, float, int, str, int, int],
+    args: Tuple[str, float, int, str, int, int, str],
 ) -> List[Dict[str, Any]]:
-    eta_type, eta_val, seed, algo_name, n_train, n_eval = args
+    eta_type, eta_val, seed, algo_name, n_train, n_eval, n_windows_train, device = args
     cfg = _make_cfg(eta_type, eta_val)
     env = MarineIoTEnv(cfg, mode="resource_mgmt",
                        max_steps=n_eval * 20 + 100)
     rng = np.random.default_rng(seed)
-    n = cfg.N_src
+    n = min(cfg.N_src, cfg.node_counts["buoy"])
 
     if algo_name == "Improved_MATD3":
-        agent = ImprovedMATD3(n, cfg, lr=3e-4)
-        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = ImprovedMATD3(n, cfg, lr=3e-4, device=device)
+        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "MATD3":
-        agent = MATD3(n, cfg, lr=3e-4)
-        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = MATD3(n, cfg, lr=3e-4, device=device)
+        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "Greedy":
         agent = GreedyAllocator(n, cfg)
         r = agent.run_episode(env, n_eval, rng)
@@ -111,14 +111,16 @@ def run_block_bc(
     n_seeds: int = N_SEEDS,
     n_train: int = N_TRAIN,
     n_eval: int = N_EVAL,
+    n_windows_train: int = 10,
     n_workers: int | None = None,
+    device: str = "cpu",
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
-        (eta_type, eta_val, seed, algo, n_train, n_eval)
+        (eta_type, eta_val, seed, algo, n_train, n_eval, n_windows_train, device)
         for eta_type in ETA_TYPES
         for eta_val in ETA_VALUES
         for seed in range(n_seeds)

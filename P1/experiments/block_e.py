@@ -1,7 +1,7 @@
 """
 Experiment Block E — Algorithm comparison under node-count variation.
 
-Fix eta_N = 1.0, sweep N_total over {40, 80, 120, 160, 200}.
+Fix eta_N = 1.0, sweep N_total over {20, 35, 50, 65, 80}.
 Compare Improved IPPO / IPPO / Greedy / ACO / GA.
 Primary metric: mean E_ND.
 Parallelized across (N_total, seed, algorithm) with ProcessPoolExecutor.
@@ -26,17 +26,17 @@ from P1.algorithms.greedy import GreedyOptimizer
 from P1.algorithms.aco import ACOOptimizer
 from P1.algorithms.ga import GAOptimizer
 
-N_TOTAL_VALUES = [40, 80, 120, 160, 200]
-N_SEEDS = 10
-N_TRAIN_EPISODES = 50
+N_TOTAL_VALUES = [20, 35, 50, 65, 80]
+N_SEEDS = 1
+N_TRAIN_EPISODES = 40
 N_EVAL_WINDOWS = 10
 
 ALGO_NAMES = ["Improved_IPPO", "IPPO", "Greedy", "ACO", "GA"]
 
 
-def _train_and_eval_rl(agent, env, protocol, cfg, rng, n_train, n_eval):
+def _train_and_eval_rl(agent, env, protocol, cfg, rng, n_train, n_eval, n_windows_train=10):
     for ep in range(n_train):
-        agent.train_episode(env, protocol, n_windows=5, rng=rng)
+        agent.train_episode(env, protocol, n_windows=n_windows_train, rng=rng)
 
     obs, _ = env.reset()
     nodes = env.nodes
@@ -57,14 +57,14 @@ def _train_and_eval_rl(agent, env, protocol, cfg, rng, n_train, n_eval):
 
 
 def _run_single_config_e(args):
-    n_total, seed, algo_name, n_train, n_eval = args
+    n_total, seed, algo_name, n_train, n_eval, n_windows_train, device = args
     cfg = EnvConfig(N_total=n_total, eta_N=1.0, print_diagnostics=False)
     rng = np.random.default_rng(seed)
     n = n_total
 
     algo_factories = {
-        "Improved_IPPO": lambda: ImprovedIPPO(n, cfg=cfg, lr=3e-4),
-        "IPPO": lambda: IPPO(n, cfg=cfg, lr=3e-4),
+        "Improved_IPPO": lambda: ImprovedIPPO(n, cfg=cfg, lr=3e-4, device=device),
+        "IPPO": lambda: IPPO(n, cfg=cfg, lr=3e-4, device=device),
         "Greedy": lambda: GreedyOptimizer(n, cfg=cfg),
         "ACO": lambda: ACOOptimizer(n, cfg=cfg),
         "GA": lambda: GAOptimizer(n, cfg=cfg),
@@ -75,7 +75,7 @@ def _run_single_config_e(args):
     agent = algo_factories[algo_name]()
 
     if algo_name in ("Improved_IPPO", "IPPO"):
-        mean_e = _train_and_eval_rl(agent, env, protocol, cfg, rng, n_train, n_eval)
+        mean_e = _train_and_eval_rl(agent, env, protocol, cfg, rng, n_train, n_eval, n_windows_train)
     else:
         result = agent.run_episode(env, protocol, n_eval, rng)
         mean_e = result["mean_energy"]
@@ -93,12 +93,14 @@ def _run_single_config_e(args):
 def run_block_e(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
                 n_train: int = N_TRAIN_EPISODES,
                 n_eval: int = N_EVAL_WINDOWS,
-                n_workers: int = None) -> pd.DataFrame:
+                n_windows_train: int = 10,
+                n_workers: int = None,
+                device: str = "cpu") -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
-    args_list = [(n_total, seed, algo_name, n_train, n_eval)
+    args_list = [(n_total, seed, algo_name, n_train, n_eval, n_windows_train, device)
                  for n_total in N_TOTAL_VALUES
                  for seed in range(n_seeds)
                  for algo_name in ALGO_NAMES]

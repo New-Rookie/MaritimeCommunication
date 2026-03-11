@@ -1,7 +1,7 @@
 """
 Experiment Block A — GMAPPO learning-rate sweep  (parallelised).
 
-Fix N_total = 120, eta_ch = 1.0.
+Fix N_total = 20, eta_ch = 1.0.
 Train GMAPPO at lr in {1e-4, 3e-4, 1e-3}.
 Log per-episode mean reward and mean LA_pi.
 
@@ -29,20 +29,20 @@ from P2.link_quality.rf_estimator import LinkQualityEstimator
 from P2.algorithms.gmappo import GMAPPO
 
 LR_VALUES = [1e-4, 3e-4, 1e-3]
-N_SEEDS = 5
+N_SEEDS = 1
 N_EPISODES = 80
-N_WINDOWS_PER_EP = 5
+N_WINDOWS_PER_EP = 10
 
 
 # ── top-level worker (picklable) ────────────────────────────────────────────
 
 def _worker_block_a(
-    args: Tuple[float, int, str | None, int, int],
+    args: Tuple[float, int, str | None, int, int, str],
 ) -> List[Dict[str, Any]]:
     """Train one (lr, seed) configuration and return per-episode records."""
-    lr, seed, estimator_path, n_episodes, n_windows = args
+    lr, seed, estimator_path, n_episodes, n_windows, device = args
 
-    cfg = EnvConfig(N_total=30, eta_ch=1.0, print_diagnostics=False)
+    cfg = EnvConfig(N_total=20, eta_ch=1.0, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="link_selection",
                        max_steps=n_windows * 20 + 50)
     rng = np.random.default_rng(seed)
@@ -51,7 +51,7 @@ def _worker_block_a(
     if estimator_path and os.path.exists(estimator_path):
         estimator.load(estimator_path)
 
-    agent = GMAPPO(cfg.N_total, cfg, estimator, lr=lr)
+    agent = GMAPPO(cfg.N_total, cfg, estimator, lr=lr, device=device)
 
     records: List[Dict[str, Any]] = []
     for ep in range(n_episodes):
@@ -81,11 +81,12 @@ def run_block_a(
     n_episodes: int = N_EPISODES,
     n_windows: int = N_WINDOWS_PER_EP,
     n_workers: int | None = None,
+    device: str = "cpu",
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
 
     if n_workers is None:
-        n_workers = min(os.cpu_count() or 1, 32)
+        n_workers = min(os.cpu_count() or 1, 48)
 
     # Resolve estimator path so every worker can load independently
     if estimator_path is None:
@@ -97,7 +98,7 @@ def run_block_a(
             estimator_path = default_path
 
     work_units = [
-        (lr, seed, estimator_path, n_episodes, n_windows)
+        (lr, seed, estimator_path, n_episodes, n_windows, device)
         for lr in LR_VALUES
         for seed in range(n_seeds)
     ]
