@@ -315,6 +315,84 @@ def compute_all_links_vectorized(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# GT topology helper — vectorized expected SNR matrix
+# ═══════════════════════════════════════════════════════════════════════════
+
+def compute_gt_snr_matrix_vectorized(
+    nodes: List[BaseNode],
+    cfg: EnvConfig,
+    step_count: int,
+    n_samples: int = 8,
+) -> np.ndarray:
+    """
+    Compute E[SNR_ij] for all directed pairs (i,j) in vectorized form.
+
+    Mathematical consistency with scalar GT logic:
+      - same path-loss / fading / environmental-noise formulas
+      - same tx power and antenna gains
+      - same fixed GT noise scale (cfg.gt_eta_N)
+      - same Monte Carlo sample count (default 8)
+
+    Returns
+    -------
+    snr_mean : np.ndarray
+        (N, N) matrix where entry [i, j] is expected SNR from tx i to rx j.
+    """
+    N = len(nodes)
+    if N == 0:
+        return np.zeros((0, 0), dtype=np.float64)
+
+    positions = np.stack([n.position for n in nodes])
+    type_ids = np.array([TYPE_ID[n.node_type] for n in nodes], dtype=np.int32)
+
+    # Max-power GT convention (independent of node run-time activity)
+    p_default = _build_txpower_default(cfg)
+    tx_powers = p_default[type_ids]  # (N,)
+
+    # Distance matrices
+    diff = positions[:, None, :] - positions[None, :, :]
+    dist_3d = np.linalg.norm(diff, axis=-1)
+    dist_2d = np.linalg.norm(diff[:, :, :2], axis=-1)
+
+    mask_sat, mask_uav, mask_sea, mask_terr = build_link_class_masks(type_ids)
+    mask_rician = mask_sat | mask_uav
+    mask_rayleigh = mask_sea | mask_terr
+
+    g_tx_table, g_rx_table = _build_gain_tables(cfg)
+    G_tx = g_tx_table[type_ids]
+    G_rx = g_rx_table[type_ids]
+
+    # Deterministic RNG for GT stability at each step
+    seed_base = (int(step_count) * 2654435761 + 1013904223) & 0xFFFFFFFF
+
+    saved_eta_N = cfg.eta_N
+    cfg.eta_N = cfg.gt_eta_N
+
+    snr_sum = np.zeros((N, N), dtype=np.float64)
+    try:
+        for k in range(max(1, int(n_samples))):
+            rng = np.random.default_rng((seed_base + k * 7919) & 0xFFFFFFFF)
+
+            PL = vectorized_path_loss(
+                dist_3d, dist_2d, positions, type_ids,
+                mask_sat, mask_uav, mask_sea, mask_terr, cfg, rng,
+            )
+            fad = vectorized_fading(N, mask_rician, mask_rayleigh, cfg, rng)
+
+            PL_linear = np.power(10.0, -PL / 10.0)
+            P_sig = tx_powers[:, None] * G_tx[:, None] * G_rx[None, :] * PL_linear * fad
+            P_sig = np.maximum(P_sig, 1e-30)
+            np.fill_diagonal(P_sig, 0.0)
+
+            N_env = vectorized_environmental_noise(cfg, type_ids, rng)  # per-rx
+            snr_sum += P_sig / np.maximum(N_env[None, :], 1e-30)
+    finally:
+        cfg.eta_N = saved_eta_N
+
+    return snr_sum / max(1, int(n_samples))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Communication range
 # ═══════════════════════════════════════════════════════════════════════════
 
