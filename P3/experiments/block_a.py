@@ -26,19 +26,19 @@ from P3.algorithms.improved_matd3 import ImprovedMATD3
 LR_VALUES = [1e-4, 3e-4, 1e-3]
 N_SEEDS = 1
 N_EPISODES = 80
-N_WINDOWS = 5
+N_WINDOWS = 10
 
 
 def _worker_block_a(
-    args: Tuple[float, int, int, int],
+    args: Tuple[float, int, int, int, str],
 ) -> List[Dict[str, Any]]:
-    lr, seed, n_episodes, n_windows = args
+    lr, seed, n_episodes, n_windows, device = args
     cfg = EnvConfig(N_total=15, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="resource_mgmt",
                        max_steps=n_windows * 20 + 50)
     rng = np.random.default_rng(seed)
 
-    agent = ImprovedMATD3(min(cfg.N_src, cfg.node_counts["buoy"]), cfg, lr=lr)
+    agent = ImprovedMATD3(min(cfg.N_src, cfg.node_counts["buoy"]), cfg, lr=lr, device=device)
     records: List[Dict[str, Any]] = []
     for ep in range(n_episodes):
         info = agent.train_episode(env, n_windows=n_windows, rng=rng)
@@ -64,13 +64,14 @@ def run_block_a(
     n_episodes: int = N_EPISODES,
     n_windows: int = N_WINDOWS,
     n_workers: int | None = None,
+    device: str = "cpu",
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
         n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
-        (lr, seed, n_episodes, n_windows)
+        (lr, seed, n_episodes, n_windows, device)
         for lr in LR_VALUES
         for seed in range(n_seeds)
     ]

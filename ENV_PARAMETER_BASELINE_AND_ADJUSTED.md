@@ -89,12 +89,12 @@ Baseline = previous commit (`HEAD~1`) value; Adjusted = current code value.
 | `K_hist` | `6` | `6` | — |
 | `B_batch_replay` | `256` | `256` | — |
 | `print_diagnostics` | `True` | `True` | — |
-| `area_width` | `100_000.0` | `1_000.0` | ✅ adjusted |
-| `area_height` | `100_000.0` | `1_000.0` | ✅ adjusted |
+| `area_width` | `100_000.0` | `500.0` | ✅ adjusted |
+| `area_height` | `100_000.0` | `500.0` | ✅ adjusted |
 | `sat_altitude` | `550_000.0` | `550_000.0` | — |
 
 ## Analysis notes
 
-- The only global environment-scale adjustment in this change set is `area_width`/`area_height` from 100 km to 1 km, per requirement.
-- Other parameters are intentionally unchanged to preserve theoretical comparability and avoid introducing new confounders.
-- Chapter-specific node/seed/worker changes are implemented in experiment block configs and runner scheduling, not as global environment default overrides.
+- Environmental scale is further reduced from 1 km × 1 km to 0.5 km × 0.5 km.
+- Other global parameters are unchanged to preserve model assumptions, metric definitions, and algorithm comparability.
+- Experiment-level controls (nodes, seeds, workers, RL windows/episodes) are handled in block and runner configs to avoid conflating environment physics with scheduling policy.

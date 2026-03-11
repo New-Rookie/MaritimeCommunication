@@ -41,9 +41,9 @@ ALGO_NAMES = ["Improved_MATD3", "MATD3", "Greedy", "ACO", "GA"]
 SOURCE_ACTIVATION_RATIO = 0.6
 
 
-def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
+def _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train=10):
     for _ in range(n_train):
-        agent.train_episode(env, n_windows=5, rng=rng)
+        agent.train_episode(env, n_windows=n_windows_train, rng=rng)
     env.reset()
     T_vals, E_vals, G_vals = [], [], []
     for _ in range(n_eval):
@@ -55,9 +55,9 @@ def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
 
 
 def _worker_block_d(
-    args: Tuple[float, int, str, int, int],
+    args: Tuple[float, int, str, int, int, str],
 ) -> List[Dict[str, Any]]:
-    m_tot, seed, algo_name, n_train, n_eval = args
+    m_tot, seed, algo_name, n_train, n_eval, n_windows_train, device = args
     cfg = EnvConfig(
         N_total=15, M_tot=m_tot,
         source_activation_ratio=SOURCE_ACTIVATION_RATIO,
@@ -69,11 +69,11 @@ def _worker_block_d(
     n = min(cfg.N_src, cfg.node_counts["buoy"])
 
     if algo_name == "Improved_MATD3":
-        agent = ImprovedMATD3(n, cfg, lr=3e-4)
-        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = ImprovedMATD3(n, cfg, lr=3e-4, device=device)
+        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "MATD3":
-        agent = MATD3(n, cfg, lr=3e-4)
-        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = MATD3(n, cfg, lr=3e-4, device=device)
+        mean_T, mean_E, mean_G = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "Greedy":
         agent = GreedyAllocator(n, cfg)
         r = agent.run_episode(env, n_eval, rng)
@@ -105,14 +105,16 @@ def run_block_d(
     n_seeds: int = N_SEEDS,
     n_train: int = N_TRAIN,
     n_eval: int = N_EVAL,
+    n_windows_train: int = 10,
     n_workers: int | None = None,
+    device: str = "cpu",
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
         n_workers = min(os.cpu_count() or 1, 48)
 
     work_units = [
-        (m_tot, seed, algo, n_train, n_eval)
+        (m_tot, seed, algo, n_train, n_eval, n_windows_train, device)
         for m_tot in M_TOT_VALUES
         for seed in range(n_seeds)
         for algo in ALGO_NAMES

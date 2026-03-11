@@ -9,25 +9,25 @@ from Env.core_env import MarineIoTEnv
 from P3.algorithms.improved_matd3 import ImprovedMATD3
 from P3.algorithms.matd3 import MATD3
 
-N_SEEDS=1; N_EPISODES=60; N_WINDOWS=5
+N_SEEDS=1; N_EPISODES=60; N_WINDOWS=10
 ALGO_NAMES=['Improved_MATD3','MATD3']
 
 def _worker(args):
-    algo,seed,n_episodes,n_windows=args
+    algo,seed,n_episodes,n_windows,device=args
     cfg=EnvConfig(N_total=15, print_diagnostics=False)
     env=MarineIoTEnv(cfg, mode='resource_mgmt', max_steps=n_windows*20+50)
     rng=np.random.default_rng(seed)
-    agent = ImprovedMATD3(min(cfg.N_src, cfg.node_counts["buoy"]),cfg,lr=3e-4) if algo=='Improved_MATD3' else MATD3(min(cfg.N_src, cfg.node_counts["buoy"]),cfg,lr=3e-4)
+    agent = ImprovedMATD3(min(cfg.N_src, cfg.node_counts["buoy"]),cfg,lr=3e-4,device=device) if algo=='Improved_MATD3' else MATD3(min(cfg.N_src, cfg.node_counts["buoy"]),cfg,lr=3e-4,device=device)
     rows=[]
     for ep in range(n_episodes):
         info=agent.train_episode(env,n_windows=n_windows,rng=rng)
         rows.append({'experiment':'E','algorithm':algo,'seed':seed,'episode':ep,'mean_reward':info['mean_reward']})
     env.close(); return rows
 
-def run_block_e(log_dir='P3/logs', n_seeds=N_SEEDS, n_episodes=N_EPISODES, n_windows=N_WINDOWS, n_workers=None):
+def run_block_e(log_dir='P3/logs', n_seeds=N_SEEDS, n_episodes=N_EPISODES, n_windows=N_WINDOWS, n_workers=None, device="cpu"):
     os.makedirs(log_dir,exist_ok=True)
     n_workers=min(os.cpu_count() or 1,48) if n_workers is None else n_workers
-    units=[(a,s,n_episodes,n_windows) for a in ALGO_NAMES for s in range(n_seeds)]
+    units=[(a,s,n_episodes,n_windows,device) for a in ALGO_NAMES for s in range(n_seeds)]
     rows=[]
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
         for batch in tqdm(pool.map(_worker, units), total=len(units), desc='Block E', unit='cfg', dynamic_ncols=True): rows.extend(batch)

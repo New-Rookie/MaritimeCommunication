@@ -25,11 +25,11 @@ from P1.algorithms.improved_ippo import ImprovedIPPO
 LR_VALUES = [1e-4, 3e-4, 1e-3]
 N_SEEDS = 1
 N_EPISODES = 100
-N_WINDOWS_PER_EP = 5
+N_WINDOWS_PER_EP = 10
 
 
 def _run_single_config_c(args):
-    lr, seed, n_episodes, n_windows = args
+    lr, seed, n_episodes, n_windows, device = args
     cfg = EnvConfig(N_total=50, eta_N=1.0, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="discovery", max_steps=n_windows * cfg.N_slot)
     rng = np.random.default_rng(seed)
@@ -37,7 +37,7 @@ def _run_single_config_c(args):
 
     agent = ImprovedIPPO(
         n_agents=cfg.N_total, obs_dim=16, act_dim=2,
-        lr=lr, cfg=cfg)
+        lr=lr, cfg=cfg, device=device)
 
     records = []
     for ep in range(n_episodes):
@@ -61,12 +61,13 @@ def _run_single_config_c(args):
 def run_block_c(log_dir: str = "P1/logs", n_seeds: int = N_SEEDS,
                 n_episodes: int = N_EPISODES,
                 n_windows: int = N_WINDOWS_PER_EP,
-                n_workers: int = None) -> pd.DataFrame:
+                n_workers: int = None,
+                device: str = "cpu") -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
     if n_workers is None:
         n_workers = min(os.cpu_count() or 1, 48)
 
-    args_list = [(lr, seed, n_episodes, n_windows)
+    args_list = [(lr, seed, n_episodes, n_windows, device)
                  for lr in LR_VALUES
                  for seed in range(n_seeds)]
 

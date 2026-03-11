@@ -41,9 +41,9 @@ ALGO_NAMES = ["GMAPPO", "MAPPO", "Greedy", "ACO", "GA"]
 
 # ── top-level helpers (picklable) ───────────────────────────────────────────
 
-def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
+def _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train=10):
     for _ in range(n_train):
-        agent.train_episode(env, n_windows=5, rng=rng)
+        agent.train_episode(env, n_windows=n_windows_train, rng=rng)
     env.reset()
     las = []
     for _ in range(n_eval):
@@ -58,10 +58,10 @@ def _train_and_eval_rl(agent, env, n_train, n_eval, rng):
 
 
 def _worker_block_b(
-    args: Tuple[int, int, str, str | None, int, int],
+    args: Tuple[int, int, str, str | None, int, int, str],
 ) -> List[Dict[str, Any]]:
     """Run one (N_total, seed, algorithm) configuration."""
-    n_total, seed, algo_name, estimator_path, n_train, n_eval = args
+    n_total, seed, algo_name, estimator_path, n_train, n_eval, n_windows_train, device = args
 
     cfg = EnvConfig(N_total=n_total, eta_ch=1.0, print_diagnostics=False)
     env = MarineIoTEnv(cfg, mode="link_selection",
@@ -75,11 +75,11 @@ def _worker_block_b(
     n = n_total
 
     if algo_name == "GMAPPO":
-        agent = GMAPPO(n, cfg, estimator, lr=3e-4)
-        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = GMAPPO(n, cfg, estimator, lr=3e-4, device=device)
+        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "MAPPO":
-        agent = MAPPO(n, cfg, estimator, lr=3e-4)
-        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng)
+        agent = MAPPO(n, cfg, estimator, lr=3e-4, device=device)
+        mean_la = _train_and_eval_rl(agent, env, n_train, n_eval, rng, n_windows_train)
     elif algo_name == "Greedy":
         agent = GreedySelector(n, cfg, estimator)
         result = agent.run_episode(env, n_eval, rng)
@@ -113,7 +113,9 @@ def run_block_b(
     n_seeds: int = N_SEEDS,
     n_train: int = N_TRAIN_EPISODES,
     n_eval: int = N_EVAL_WINDOWS,
+    n_windows_train: int = 10,
     n_workers: int | None = None,
+    device: str = "cpu",
 ) -> pd.DataFrame:
     os.makedirs(log_dir, exist_ok=True)
 
@@ -129,7 +131,7 @@ def run_block_b(
             estimator_path = default_path
 
     work_units = [
-        (n_total, seed, algo_name, estimator_path, n_train, n_eval)
+        (n_total, seed, algo_name, estimator_path, n_train, n_eval, n_windows_train, device)
         for n_total in N_TOTAL_VALUES
         for seed in range(n_seeds)
         for algo_name in ALGO_NAMES

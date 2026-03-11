@@ -47,3 +47,8 @@ The modified defaults maintain fair comparative settings (same seeds/config rang
 - Use full run for publication curves.
 - Use `--quick` for smoke validation only.
 - For unstable environments, keep worker count explicit (e.g., `--workers 32` or `--workers 40`) and run blocks sequentially.
+
+
+## Latest update
+- Environment scale tightened to 500 m × 500 m for further runtime reduction, while preserving all other physical-model parameters for comparability.
+- Runner-level auto device/core management was added (`--device`, `--cpu-cores`, `--cpu-utilization`, `--rl-episodes`, `--rl-windows`) to better exploit 96-core CPU and local GPU environments.

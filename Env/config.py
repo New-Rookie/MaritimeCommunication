@@ -172,8 +172,8 @@ class EnvConfig:
     print_diagnostics: bool = True
 
     # ── Simulation area ──────────────────────────────────────────────────
-    area_width: float = 1_000.0    # m — 1 km
-    area_height: float = 1_000.0   # m — 1 km
+    area_width: float = 500.0    # m — 0.5 km
+    area_height: float = 500.0   # m — 0.5 km
     sat_altitude: float = 550_000.0  # m — LEO altitude
 
     # ==================================================================

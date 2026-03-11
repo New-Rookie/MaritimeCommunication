@@ -43,6 +43,35 @@ BLOCK_DESC = {
 }
 
 
+def _resolve_execution_config(device_arg: str, cpu_cores: int | None, cpu_utilization: float) -> tuple[str, int, int]:
+    cpu_total = os.cpu_count() or 1
+    cpu_budget = max(1, min(cpu_total, cpu_cores if cpu_cores is not None else int(round(cpu_total * cpu_utilization))))
+
+    device = "cpu"
+    if device_arg in ("cpu", "cuda"):
+        device = device_arg
+    else:
+        import importlib.util
+        import importlib
+        has_torch = importlib.util.find_spec("torch") is not None
+        if has_torch:
+            torch = importlib.import_module("torch")
+            if torch.cuda.is_available():
+                device = "cuda"
+
+    # concurrent P1/P2/P3 default split unless explicit cpu_cores given
+    if cpu_cores is None:
+        worker_budget = max(1, cpu_budget // 3)
+    else:
+        worker_budget = cpu_budget
+
+    # GPU mode: avoid oversubscribing a single accelerator by default
+    if device == "cuda":
+        worker_budget = max(1, min(worker_budget, 4))
+
+    return device, cpu_budget, worker_budget
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="RC2 Link Selection Experiment Runner")
@@ -54,11 +83,21 @@ def main():
     parser.add_argument("--quick", action="store_true",
                         help="Reduce seeds/episodes for smoke test")
     parser.add_argument("--workers", type=int, default=None,
-                        help="Max parallel workers (default: auto-share CPU across P1/P2/P3 concurrent runs)")
+                        help="Max parallel workers (overrides auto budget)")
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto",
+                        help="Execution device preference for RL blocks")
+    parser.add_argument("--cpu-cores", type=int, default=None,
+                        help="CPU cores budget for this runner")
+    parser.add_argument("--cpu-utilization", type=float, default=1.0,
+                        help="Fraction of local CPU to budget when --cpu-cores is not set")
+    parser.add_argument("--rl-episodes", type=int, default=None,
+                        help="Override RL training episodes for episodic RL blocks")
+    parser.add_argument("--rl-windows", type=int, default=10,
+                        help="Training timesteps/windows per RL episode")
     args = parser.parse_args()
 
-    cpu_total = os.cpu_count() or 1
-    auto_workers = max(1, cpu_total // 3)
+    device, cpu_budget, auto_workers = _resolve_execution_config(
+        args.device, args.cpu_cores, args.cpu_utilization)
     resolved_workers = args.workers if args.workers is not None else auto_workers
 
     os.makedirs(args.log_dir, exist_ok=True)
@@ -79,7 +118,9 @@ def main():
         print("  MODE: --quick (reduced seeds/episodes for smoke test)")
     print(f"  Blocks: {', '.join(blocks)}")
     print(f"  Log dir: {args.log_dir}/")
-    print(f"  Workers: {resolved_workers} ({'manual' if args.workers is not None else 'auto-shared: cpu_count//3'})")
+    print(f"  Device: {device}")
+    print(f"  CPU budget: {cpu_budget} cores")
+    print(f"  Workers: {resolved_workers} ({'manual' if args.workers is not None else 'auto'})")
     print("=" * 64)
     print()
 
@@ -112,10 +153,15 @@ def main():
                 estimator = _load_estimator(args.log_dir)
             kw = {"estimator": estimator,
                   "estimator_path": estimator_path,
+                  "device": device,
                   **worker_kw}
             if args.quick:
                 kw["n_seeds"] = 2
                 kw["n_episodes"] = 10
+                kw["n_windows"] = 3
+            if args.rl_episodes is not None:
+                kw["n_episodes"] = args.rl_episodes
+            kw["n_windows"] = args.rl_windows
             run_block_a(log_dir=args.log_dir, **kw)
 
         elif block_id == "B":
@@ -123,10 +169,15 @@ def main():
                 estimator = _load_estimator(args.log_dir)
             kw = {"estimator": estimator,
                   "estimator_path": estimator_path,
+                  "device": device,
                   **worker_kw}
             if args.quick:
                 kw["n_seeds"] = 2
                 kw["n_train"] = 10
+                kw["n_windows_train"] = 3
+            if args.rl_episodes is not None:
+                kw["n_train"] = args.rl_episodes
+            kw["n_windows_train"] = args.rl_windows
             run_block_b(log_dir=args.log_dir, **kw)
 
         elif block_id == "C":
@@ -134,20 +185,29 @@ def main():
                 estimator = _load_estimator(args.log_dir)
             kw = {"estimator": estimator,
                   "estimator_path": estimator_path,
+                  "device": device,
                   **worker_kw}
             if args.quick:
                 kw["n_seeds"] = 2
                 kw["n_train"] = 10
+                kw["n_windows_train"] = 3
+            if args.rl_episodes is not None:
+                kw["n_train"] = args.rl_episodes
+            kw["n_windows_train"] = args.rl_windows
             run_block_c(log_dir=args.log_dir, **kw)
 
 
         elif block_id == "D":
             if estimator is None:
                 estimator = _load_estimator(args.log_dir)
-            kw = {"estimator_path": estimator_path, **worker_kw}
+            kw = {"estimator_path": estimator_path, "device": device, **worker_kw}
             if args.quick:
                 kw["n_seeds"] = 2
                 kw["n_episodes"] = 10
+                kw["n_windows"] = 3
+            if args.rl_episodes is not None:
+                kw["n_episodes"] = args.rl_episodes
+            kw["n_windows"] = args.rl_windows
             run_block_d(log_dir=args.log_dir, **kw)
 
         elapsed = time.time() - t0

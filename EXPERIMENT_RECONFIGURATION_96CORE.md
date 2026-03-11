@@ -1,7 +1,7 @@
 # Experiment Reconfiguration Plan (96-core concurrent execution)
 
 ## Mandatory adjustments implemented
-1. Environment area reduced to **1×1 km** via `area_width=1000 m`, `area_height=1000 m`.
+1. Environment area reduced to **0.5×0.5 km** via `area_width=500 m`, `area_height=500 m`.
 2. **P1** node policy:
    - varying-node blocks capped at 80: `{20,35,50,65,80}`
    - fixed-node blocks set to `N_total=50`
@@ -36,3 +36,10 @@ python -m P2.experiments.runner --log-dir P2/logs
 python -m P3.experiments.runner --log-dir P3/logs
 ```
 (or run in three separate terminals/process managers concurrently)
+
+
+## Device and core utilization controls
+- Added `--device {auto,cpu,cuda}` in P1/P2/P3 runners.
+- Added `--cpu-cores` and `--cpu-utilization` to explicitly control CPU budgets.
+- Auto mode detects CUDA and prioritizes GPU for RL blocks; otherwise CPU execution uses the configured core budget.
+- Added `--rl-episodes` and `--rl-windows` for unified high-load RL scheduling (e.g., 800 episodes × 10 windows).
